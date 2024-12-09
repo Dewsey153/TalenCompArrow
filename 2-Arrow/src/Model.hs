@@ -33,11 +33,13 @@ data Token =
 data Program = 
   Program [Rule]
     deriving Show
+
 data Rule = Rule IIdent Cmds
     deriving Show
 
-data Cmds = CmdsEmpty | Cmd Cmd [Cmd]
+data Cmds = Cmds [Cmd]
     deriving Show
+
 data Cmd = 
     CGo 
   | CTake 
@@ -49,14 +51,12 @@ data Cmd =
     deriving Show
 
 data Dir =
-     Left
-    |Right
-    |Front
+     DLeft
+    |DRight
+    |DFront
   deriving Show
 
-data Alts =
-     AltsEmpty
-     | Alts Alt [Alt]
+data Alts = Alts [Alt]
   deriving Show
 
 data Alt = Alt Pat Cmds
