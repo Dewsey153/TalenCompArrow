@@ -1,10 +1,12 @@
 module Main where
 
+import ParseLib
 import Algebra
 import Model
 import Interpreter
 import Lexer
 import Parser
+import Data.Map
 
 -- Exercise 11
 interactive :: Environment -> ArrowState -> IO ()
@@ -18,17 +20,23 @@ batch = undefined
 -- and write a new main function.
 main :: IO ()
 main = do
-  chars <- readFile "examples/Add.arrow"
-  putStrLn "Input program:"
-  putStrLn ""
-  putStrLn chars
-  putStrLn ""
-  let tokens = alexScanTokens chars
-  putStrLn "Tokens:"
-  putStrLn ""
-  print tokens
-  let arr = parser tokens
-  putStrLn "Parsed program:"
-  putStrLn ""
-  print arr
+  chars <- readFile "examples/AddInput.space"
+  let space = fst (head (parse parseSpace chars))
+  let printedSpace = printSpace space
+  let space1 = fst (head (parse parseSpace chars))
+  print $ printSpace space1
+
+  -- chars <- readFile "examples/Add.arrow"
+  -- putStrLn "Input program:"
+  -- putStrLn ""
+  -- putStrLn chars
+  -- putStrLn ""
+  -- let tokens = alexScanTokens chars
+  -- putStrLn "Tokens:"
+  -- putStrLn ""
+  -- print tokens
+  -- let arr = parser tokens
+  -- putStrLn "Parsed program:"
+  -- putStrLn ""
+  -- print arr
 

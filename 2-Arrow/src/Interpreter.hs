@@ -12,6 +12,7 @@ import Lexer
 import Parser
 import Model
 import Algebra
+import Data.Maybe
 
 
 data Contents  =  Empty | Lambda | Debris | Asteroid | Boundary
@@ -53,7 +54,31 @@ contentsTable =  [ (Empty   , '.' )
 
 -- Exercise 7
 printSpace :: Space -> String
-printSpace = undefined
+printSpace space = '(' : show (xRows space) ++ "," ++ show (xColumns space) ++ ")\r\n" 
+  ++ positionsY space 0 
+  where
+    positionsY :: Space -> Int -> String
+    positionsY s j | j <= xRows s = positionsX s 0 j ++ "\r\n" ++  positionsY s (j+1)
+                   | otherwise = ""
+    positionsX :: Space -> Int -> Int -> String
+    positionsX s i j | i <= xColumns s = printContent (fromJust (L.lookup (j,i) s)) : positionsX s (i+1) j
+                     | otherwise = ""
+
+
+    maxKey :: Space -> Pos
+    maxKey s = fst (L.findMax s)
+    xRows :: Space -> Int
+    xRows s = fst $ maxKey s
+    xColumns :: Space -> Int
+    xColumns s = snd $ maxKey s
+
+    -- Get a char based on the input Contents
+    printContent :: Contents -> Char
+    printContent Empty    = '.'
+    printContent Lambda   = '\\'
+    printContent Debris   = '%'
+    printContent Asteroid = 'O'
+    printContent Boundary = '#'
 
 
 -- These three should be defined by you
