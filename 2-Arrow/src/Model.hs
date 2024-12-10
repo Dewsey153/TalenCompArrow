@@ -72,4 +72,4 @@ data Pat =
     |PAsteroid
     |PBoundary
     |PUnderscore
-  deriving Show
+  deriving (Show, Eq)
