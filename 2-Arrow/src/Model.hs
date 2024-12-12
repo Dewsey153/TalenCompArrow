@@ -63,7 +63,7 @@ data Alt = Alt Pat Cmds
   deriving Show
 
 data IIdent = IIdent String
-  deriving Show
+  deriving (Show, Eq, Ord)
 
 data Pat = 
       PEmpty

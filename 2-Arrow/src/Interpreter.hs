@@ -82,8 +82,8 @@ printSpace space = '(' : show (xRows space) ++ "," ++ show (xColumns space) ++ "
 
 
 -- These three should be defined by you
-type Ident = ()
-type Commands = ()
+type Ident = IIdent
+type Commands = Cmds
 type Heading = ()
 
 type Environment = Map Ident Commands
@@ -97,7 +97,17 @@ data Step =  Done  Space Pos Heading
 
 -- | Exercise 8
 toEnvironment :: String -> Environment
-toEnvironment = undefined
+toEnvironment input = 
+  let
+    p = parser (alexScanTokens input)
+  in
+    if checkProgram p then programToEnvironment p else L.empty
+
+programToEnvironment :: Program -> Environment
+programToEnvironment (Program rules) = foldl addToEnvironment L.empty rules
+  where
+    addToEnvironment :: Environment -> Rule -> Environment
+    addToEnvironment cenv (Rule ident cmds) = L.insert ident cmds cenv
 
 -- | Exercise 9
 step :: Environment -> ArrowState -> Step
