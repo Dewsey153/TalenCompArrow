@@ -6,15 +6,15 @@ import Model
 -- Exercise 5
 type Algebra program rule cmds cmd dir alts alt ident pat = 
     (
-        [rule] -> program,
-        ident -> cmds -> rule,
-        [cmd] -> cmds,
-        CmdAlgebra cmd dir alts ident,
-        DirAlgebra dir,
-        [alt] -> alts,
-        pat -> cmds -> alt,
-        String -> ident,
-        PatAlgebra pat
+        [rule] -> program,              -- program function
+        ident -> cmds -> rule,          -- rule function
+        [cmd] -> cmds,                  -- commands function
+        CmdAlgebra cmd dir alts ident,  -- algebra for a single command
+        DirAlgebra dir,                 -- algebra for a single direction
+        [alt] -> alts,                  -- alts function
+        pat -> cmds -> alt,             -- alt function
+        String -> ident,                -- identifier function
+        PatAlgebra pat                  -- algebra for pattern match
     )
 
 type CmdAlgebra cmd dir alts ident = 
@@ -99,18 +99,22 @@ fold (program, rule, cmds, cmdAlg, dirAlg, alts, alt, ident, patAlg)
 checkProgram :: Program -> Bool
 checkProgram = undefined
 
+-- Algebra which checks whether there is at least one rule named "start".
 ruleNamedStart :: Algebra Bool Bool () () () () () Bool ()
 ruleNamedStart = 
     (
-        or,
-        const,
-        const (),
-        cmdRuleNamedStart,
-        dirRuleNamedStart,
-        const (),
-        \_ _ -> (),
-        (== "start"),
-        patRuleNamedStart
+        or,                 -- For the input list of booleans, one for each rule,
+                            -- at least one must be true to return a 
+                            -- True boolean.
+        const,              -- for rule function, input is a Bool stating whether 
+                            -- the title is "start", this must be passed on
+        const (),           -- empty function
+        cmdRuleNamedStart,  -- empty algebra
+        dirRuleNamedStart,  -- empty algebra
+        const (),           -- empty function
+        \_ _ -> (),         -- empty function
+        (== "start"),       -- for identifier, check whether the string is "start"
+        patRuleNamedStart   -- empty algebra
     )
     where
         cmdRuleNamedStart :: CmdAlgebra () () () Bool
@@ -145,23 +149,28 @@ ruleNamedStart =
 noPatternMatchFailure :: Algebra Bool Bool Bool Bool () Bool Pat () Pat
 noPatternMatchFailure = 
     (
-        and,
-        \_ cs -> cs,
-        and,
-        cmdNPMF,
-        dirNPMF,
-        \pats -> 
-                elem PUnderscore pats 
+        and,            -- All pattern match cases must be fully covered
+        \_ cs -> cs,    -- Just pass along cmds bool
+        and,            -- All pattern match cases in cmds must be fully covered
+        cmdNPMF,        -- Algebra checks whether all pattern match cases are fully covered
+        dirNPMF,        -- Empty algebra
+        \pats ->        -- For pattern matchings, Underscore must be present 
+                        -- exactly once, or all other patterns must be 
+                        -- present exactly once
+                one (== PUnderscore) pats 
             ||  (   one (== PEmpty)     pats 
                 &&  one (== PLambda)    pats 
                 &&  one (== PDebris)    pats 
                 &&  one (== PAsteroid)  pats 
                 &&  one (== PBoundary)  pats),
-        const,
-        const (),
-        patNPMF
+        const,          -- Just pass on the pattern matching, to be used by pats function
+        const (),       -- Empty function
+        patNPMF         -- Identity algebra
     )
     where
+        -- If no pattern match is present, there is no problem with pattern 
+        -- matching, so return True. Else, pass on the alts parameter,
+        -- which indicates whether the pattern match is complete.
         cmdNPMF = 
             (
                 True,
@@ -180,6 +189,7 @@ noPatternMatchFailure =
                 ()
             )
         
+        -- Identity algeba consists of all constructors
         patNPMF = 
             (
                 PEmpty,
