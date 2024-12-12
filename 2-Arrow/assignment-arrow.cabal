@@ -15,7 +15,8 @@ executable arrow
                        containers,
                        uu-tc == 2024.1.1,
                        array,
-                       assignment-arrow
+                       assignment-arrow,
+                       unordered-containers
 
   hs-source-dirs:      app
 
@@ -31,7 +32,8 @@ library
   build-depends:       base >=4.14,
                        containers,
                        uu-tc == 2024.1.1,
-                       array
+                       array,
+                       unordered-containers
 
   build-tool-depends:  alex:alex,
                        happy:happy
