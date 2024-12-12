@@ -96,6 +96,7 @@ data Step =  Done  Space Pos Heading
           |  Fail  String
 
 -- | Exercise 8
+-- Parse the string into a new environment
 toEnvironment :: String -> Environment
 toEnvironment input = 
   let
@@ -103,6 +104,7 @@ toEnvironment input =
   in
     if checkProgram p then programToEnvironment p else L.empty
 
+-- Convert a Program into an Environment by placing each rule in the Map
 programToEnvironment :: Program -> Environment
 programToEnvironment (Program rules) = foldl addToEnvironment L.empty rules
   where
