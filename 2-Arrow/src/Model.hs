@@ -47,13 +47,13 @@ data Cmd =
   | CNothing
   | CTurn Dir
   | CCaseOfEnd Dir Alts
-  | CIdent IIdent
+  | CRule IIdent
     deriving Show
 
 data Dir =
-     DLeft
-    |DRight
-    |DFront
+      DLeft
+    | DRight
+    | DFront
   deriving Show
 
 data Alts = Alts [Alt]
@@ -66,10 +66,10 @@ data IIdent = IIdent String
   deriving Show
 
 data Pat = 
-     PEmpty
-    |PLambda
-    |PDebris
-    |PAsteroid
-    |PBoundary
-    |PUnderscore
+      PEmpty
+    | PLambda
+    | PDebris
+    | PAsteroid
+    | PBoundary
+    | PUnderscore
   deriving (Show, Eq)

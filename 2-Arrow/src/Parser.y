@@ -52,7 +52,7 @@ Cmd : go                  { CGo }
   | nothing               { CNothing }
   | turn Dir              { CTurn $2 }
   | case Dir of Alts end  { CCaseOfEnd $2 $4 }
-  | IIdent                { CIdent $1 }
+  | IIdent                { CRule $1 }
 
 IIdent : Ident            {IIdent $1}
 
