@@ -205,6 +205,52 @@ noPatternMatchFailure =
                 PUnderscore
             )
 
+-- Algebra for getting environment of all rule names
+envAlg :: Algebra Env String () () () () () String ()
+envAlg = 
+    (
+        foldl (flip HashSet.insert) HashSet.empty,
+        const,
+        const (),
+        cmdEnv,
+        dirEnv,
+        const (),
+        \_ _ -> (),
+        id,
+        patEnv
+    )
+    where
+        -- empty algebra
+        cmdEnv = 
+            (
+                (),
+                (),
+                (),
+                (),
+                const (),
+                \_ _ -> (),
+                const ()
+            )
+        
+        -- empty algebra
+        dirEnv =
+            (
+                (),
+                (),
+                ()
+            )
+
+        -- empty algebra
+        patEnv =
+            (
+                (),
+                (),
+                (),
+                (),
+                (),
+                ()
+            )
+
 -- environment contains all rule names
 noCallsToUndefinedRules :: Algebra Bool (Env -> Env -> (Env, Bool)) (Env -> Bool) (Env -> Bool) () (Env -> Bool) (Env -> Bool) String ()
 noCallsToUndefinedRules =
