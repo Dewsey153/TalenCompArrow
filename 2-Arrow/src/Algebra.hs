@@ -4,6 +4,7 @@ import Model
 
 import Data.HashSet ( HashSet )
 import qualified Data.HashSet as HashSet
+import qualified Data.Bifunctor as BF
 
 type Env = HashSet String
 
@@ -34,19 +35,19 @@ type CmdAlgebra cmd dir alts ident =
 
 type DirAlgebra dir =
     (
-        dir,
-        dir,
-        dir
+        dir,                -- left
+        dir,                -- right
+        dir                 -- front
     )
 
 type PatAlgebra pat =
     (
-        pat,
-        pat,
-        pat,
-        pat,
-        pat,
-        pat
+        pat,                -- empty
+        pat,                -- lambda
+        pat,                -- debris
+        pat,                -- asteroid
+        pat,                -- boundary
+        pat                 -- underscore
     )
 
 fold :: Algebra program rule cmds cmdAlg dirAlg alts alt ident patAlg
@@ -207,7 +208,7 @@ noPatternMatchFailure =
 
 -- Algebra for getting environment of all rule names
 envAlg :: Algebra Env String () () () () () String ()
-envAlg = 
+envAlg =
     (
         foldl (flip HashSet.insert) HashSet.empty,
         const,
@@ -221,7 +222,7 @@ envAlg =
     )
     where
         -- empty algebra
-        cmdEnv = 
+        cmdEnv =
             (
                 (),
                 (),
@@ -231,7 +232,7 @@ envAlg =
                 \_ _ -> (),
                 const ()
             )
-        
+
         -- empty algebra
         dirEnv =
             (
@@ -251,60 +252,54 @@ envAlg =
                 ()
             )
 
--- environment contains all rule names
-noCallsToUndefinedRules :: Algebra Bool (Env -> Env -> (Env, Bool)) (Env -> Bool) (Env -> Bool) () (Env -> Bool) (Env -> Bool) String ()
-noCallsToUndefinedRules =
+-- Given an environment, checks whether there are no calls to undefined rules 
+-- in the program given to fold. Also checks whether there is a rule named "start".
+envCheckAlg :: Algebra (Env -> Bool) (Env -> Bool) (Env -> Bool) (Env -> Bool) () (Env -> Bool) (Env -> Bool) String ()
+envCheckAlg =
     (
-        -- all rules must not call any undefined rule
-        undefined,
-        -- ident :: String, cmds :: Env -> Bool, env :: Env
-        -- Insert identifier into environment and fill it in to the cmds function
-        \ident cmds cenv fenv -> (HashSet.insert ident cenv, cmds fenv),
-        -- cmdList :: [Env -> Bool], env :: Env. 
-        -- Return whether the list returns all true bools when given the environment
+        -- rules :: [Bool]
+        -- Bool indicates whether Rule calls another undefined Rule
+        \rules env -> HashSet.member "start" env && all (\f -> f env) rules,
+        -- ident :: (), cmds :: Bool
+        -- cmds indicates whether no command call undefined rules
+        \ident cmds env -> cmds env,
+        -- cmdList :: [Bool]
+        -- Indicates whether all command do not call undefined rule
         \cmdList env -> all (\f -> f env) cmdList,
-        -- cmdNCTUR ::  Env -> Bool
-        -- True iff the command does not call an undefined rule
-        cmdNCTUR,
-        -- empty algebra
-        dirNCTUR,
-        -- altlist :: [Env -> Bool]
+        envCheckCmd,
+        envCheckDir,
+        -- altList :: [Bool]
+        -- Indicate for each alt whether it does not contain call to undefined 
+        -- rule
         \altList env -> all (\f -> f env) altList,
-        -- pat :: (), cmds :: Env -> Bool, env :: Env
-        -- cmds :: Env -> Bool, env :: Env
-        -- For each command in cmds, True iff none call undefined rule
-        \_ cmds env -> cmds env,
-        -- Just pass along the string identifier
+        -- pat :: (), cmds :: Bool
+        \pat cmds env -> cmds env,
         id,
-        -- Empty algebra
-        patNCTUR
+        envCheckPat
     )
     where
-        -- Returns true iff there is no function call to an undefined function in the command
-        cmdNCTUR :: CmdAlgebra (Env -> Bool) () (Env -> Bool) String
-        cmdNCTUR = 
+        envCheckCmd :: CmdAlgebra (Env -> Bool) () (Env -> Bool) String
+        envCheckCmd =
             (
                 const True,
                 const True,
                 const True,
                 const True,
-                \_ _ -> True,
-                \_ as env -> as env,
+                \dir env -> True,
+                \dir alts env -> alts env,
                 HashSet.member
             )
 
-        -- empty algebra
-        dirNCTUR :: DirAlgebra ()
-        dirNCTUR = 
+        envCheckDir :: DirAlgebra ()
+        envCheckDir =
             (
                 (),
                 (),
                 ()
             )
 
-        -- empty algebra
-        patNCTUR :: PatAlgebra ()    
-        patNCTUR = 
+        envCheckPat :: PatAlgebra ()
+        envCheckPat =
             (
                 (),
                 (),
@@ -313,6 +308,104 @@ noCallsToUndefinedRules =
                 (),
                 ()
             )
+
+-- combine two algebras, so you need a single fold to evaluate both.
+-- The result is a tuple of the fold result.
+combine :: Algebra program1 rule1 cmds1 cmd1 dir1 alts1 alt1 ident1 pat1
+        -> Algebra program2 rule2 cmds2 cmd2 dir2 alts2 alt2 ident2 pat2
+        -> Algebra (program1, program2) (rule1, rule2) (cmds1, cmds2) (cmd1, cmd2) (dir1, dir2) (alts1, alts2) (alt1, alt2) (ident1, ident2) (pat1, pat2)
+combine
+    (
+        program1,
+        rule1,
+        cmds1,
+        cmdAlg1,
+        dirAlg1,
+        alts1,
+        alt1,
+        ident1,
+        patAlg1
+    )
+    (
+        program2,
+        rule2,
+        cmds2,
+        cmdAlg2,
+        dirAlg2,
+        alts2,
+        alt2,
+        ident2,
+        patAlg2
+    ) =
+    (
+        \rules -> (program1 (map fst rules), program2 (map snd rules)),
+        \ident cmds -> BF.bimap (rule1 (fst ident)) (rule2 (snd ident)) cmds,
+        \cmds -> (cmds1 (map fst cmds), cmds2 (map snd cmds)),
+        combineCmd cmdAlg1 cmdAlg2,
+        combineDir dirAlg1 dirAlg2,
+        \alts -> (alts1 (map fst alts), alts2 (map snd alts)),
+        \pat cmds -> BF.bimap (alt1 (fst pat)) (alt2 (snd pat)) cmds,
+        \s -> (ident1 s, ident2 s),
+        combinePat patAlg1 patAlg2
+    )
+    where
+        combineCmd :: CmdAlgebra cmd1 dir1 alts1 ident1
+            -> CmdAlgebra cmd2 dir2 alts2 ident2
+            -> CmdAlgebra (cmd1, cmd2) (dir1, dir2) (alts1, alts2) (ident1, ident2)
+        combineCmd
+            (
+                go1,
+                take1,
+                mark1,
+                nothing1,
+                turn1,
+                case1,
+                crule1
+            )
+            (
+                go2,
+                take2,
+                mark2,
+                nothing2,
+                turn2,
+                case2,
+                crule2
+            )
+            =
+            (
+                (go1, go2),
+                (take1, take2),
+                (mark1, mark2),
+                (nothing1, nothing2),
+                BF.bimap turn1 turn2,
+                \dir -> BF.bimap (case1 (fst dir)) (case2 (snd dir)),
+                BF.bimap crule1 crule2
+            )
+
+        combineDir :: DirAlgebra dir1 -> DirAlgebra dir2 -> DirAlgebra (dir1, dir2)
+        combineDir (left1, right1, front1) (left2, right2, front2) =
+            ((left1, left2), (right1, right2), (front1, front2))
+
+        combinePat :: PatAlgebra pat1 -> PatAlgebra pat2 -> PatAlgebra (pat1, pat2)
+        combinePat (empty1, lambda1, debris1, asteroid1, boundary1, underscore1) 
+            (empty2, lambda2, debris2, asteroid2, boundary2, underscore2) = 
+            (
+                (empty1, empty2),
+                (lambda1, lambda2),
+                (debris1, debris2),
+                (asteroid1, asteroid2),
+                (boundary1, boundary2),
+                (underscore1, underscore2)
+            )
+
+-- Checks whether the requirements considering rule names
+-- and calls are respected.
+checkProgramRules :: Program -> Bool
+checkProgramRules p = 
+    let
+        (env, f) = fold (combine envAlg envCheckAlg) p
+    in
+        f env
 
 -- Return whether exactly one element of the list 
 -- satisfies the predicate.
