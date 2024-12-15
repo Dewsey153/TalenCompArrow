@@ -102,56 +102,13 @@ fold (program, rule, cmds, cmdAlg, dirAlg, alts, alt, ident, patAlg)
 
 -- Exercise 6
 
+-- Checks whether the input program is valid.
 checkProgram :: Program -> Bool
-checkProgram = undefined
+checkProgram p = 
+    let (noMatchFail, ((noDoubles, env), f)) = fold (combine noPatternMatchFailure (combine envAlg envCheckAlg)) p
+    in noMatchFail && noDoubles && f env
 
--- Algebra which checks whether there is at least one rule named "start".
-ruleNamedStart :: Algebra Bool Bool () () () () () Bool ()
-ruleNamedStart =
-    (
-        or,                 -- For the input list of booleans, one for each rule,
-                            -- at least one must be true to return a 
-                            -- True boolean.
-        const,              -- for rule function, input is a Bool stating whether 
-                            -- the title is "start", this must be passed on
-        const (),           -- empty function
-        cmdRuleNamedStart,  -- empty algebra
-        dirRuleNamedStart,  -- empty algebra
-        const (),           -- empty function
-        \_ _ -> (),         -- empty function
-        (== "start"),       -- for identifier, check whether the string is "start"
-        patRuleNamedStart   -- empty algebra
-    )
-    where
-        cmdRuleNamedStart :: CmdAlgebra () () () Bool
-        cmdRuleNamedStart =
-            (
-                (),
-                (),
-                (),
-                (),
-                const (),
-                \_ _ -> (),
-                const ()
-            )
-        dirRuleNamedStart :: DirAlgebra ()
-        dirRuleNamedStart =
-            (
-                (),
-                (),
-                ()
-            )
-        patRuleNamedStart :: PatAlgebra ()
-        patRuleNamedStart =
-            (
-                (),
-                (),
-                (),
-                (),
-                (),
-                ()
-            )
-
+-- Returns whether all cases are handled when using pattern matching.
 noPatternMatchFailure :: Algebra Bool Bool Bool Bool () Bool Pat () Pat
 noPatternMatchFailure =
     (
@@ -206,11 +163,12 @@ noPatternMatchFailure =
                 PUnderscore
             )
 
--- Algebra for getting environment of all rule names
-envAlg :: Algebra Env String () () () () () String ()
+-- Algebra for getting environment of all rule names.
+-- The output boolean indicates whether one or more rules are defined multiple times.
+envAlg :: Algebra (Bool, Env) String () () () () () String ()
 envAlg =
     (
-        foldl (flip HashSet.insert) HashSet.empty,
+        \ss -> let set = foldl (flip HashSet.insert) HashSet.empty ss in (length set == length ss, set),
         const,
         const (),
         cmdEnv,
@@ -281,12 +239,15 @@ envCheckAlg =
         envCheckCmd :: CmdAlgebra (Env -> Bool) () (Env -> Bool) String
         envCheckCmd =
             (
+                -- If no rule is called, no undefined rule is called, so return True.
                 const True,
                 const True,
                 const True,
                 const True,
                 \dir env -> True,
                 \dir alts env -> alts env,
+
+                -- If a rule is called, check if the rule name is in the HashSet of defined rule names.
                 HashSet.member
             )
 
@@ -387,8 +348,8 @@ combine
             ((left1, left2), (right1, right2), (front1, front2))
 
         combinePat :: PatAlgebra pat1 -> PatAlgebra pat2 -> PatAlgebra (pat1, pat2)
-        combinePat (empty1, lambda1, debris1, asteroid1, boundary1, underscore1) 
-            (empty2, lambda2, debris2, asteroid2, boundary2, underscore2) = 
+        combinePat (empty1, lambda1, debris1, asteroid1, boundary1, underscore1)
+            (empty2, lambda2, debris2, asteroid2, boundary2, underscore2) =
             (
                 (empty1, empty2),
                 (lambda1, lambda2),
@@ -397,15 +358,6 @@ combine
                 (boundary1, boundary2),
                 (underscore1, underscore2)
             )
-
--- Checks whether the requirements considering rule names
--- and calls are respected.
-checkProgramRules :: Program -> Bool
-checkProgramRules p = 
-    let
-        (env, f) = fold (combine envAlg envCheckAlg) p
-    in
-        f env
 
 -- Return whether exactly one element of the list 
 -- satisfies the predicate.
