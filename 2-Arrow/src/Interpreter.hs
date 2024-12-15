@@ -84,8 +84,9 @@ printSpace space = '(' : show (xRows space) ++ "," ++ show (xColumns space) ++ "
 -- These three should be defined by you
 type Ident = IIdent
 type Commands = Cmds
-type Heading = ()
+type Heading = Dir
 
+-- Maps function names to command stacks
 type Environment = Map Ident Commands
 
 type Stack       =  Commands
@@ -113,6 +114,38 @@ programToEnvironment (Program rules) = foldl addToEnvironment L.empty rules
 
 -- | Exercise 9
 step :: Environment -> ArrowState -> Step
-step = undefined
+step env state@(ArrowState space position heading (Cmds commands)) =
+  let 
+    noCommandLeft = null commands
+    top = head commands 
+  in
+    -- Return Done if there are no commands left
+    if noCommandLeft then
+      Done space position heading
+    else
+        case top of
+          CGo -> stepGo state
+          CTake -> stepTake state
+          CMark -> stepMark state
+          CNothing -> Ok state
+          CTurn dir -> stepTurn state dir
+          CCaseOfEnd dir alts -> stepCase state dir
+          CRule ident -> stepRule env state ident
 
+stepGo :: ArrowState -> Step
+stepGo state = undefined
 
+stepTake :: ArrowState -> Step
+stepTake = undefined
+
+stepMark :: ArrowState -> Step
+stepMark = undefined
+
+stepTurn :: ArrowState -> Dir -> Step
+stepTurn d = undefined
+
+stepCase :: ArrowState -> Dir -> Step
+stepCase d as = undefined
+
+stepRule :: Environment -> ArrowState -> Ident -> a
+stepRule i = undefined
