@@ -54,7 +54,7 @@ data Dir =
       DLeft
     | DRight
     | DFront
-  deriving Show
+  deriving (Show, Eq)
 
 data Alts = Alts [Alt]
   deriving Show

@@ -13,9 +13,15 @@ import Parser
 import Model
 import Algebra
 import Data.Maybe
+import Data.HashMap.Internal.Array (new)
+import Control.Arrow (ArrowChoice(right))
 
 
 data Contents  =  Empty | Lambda | Debris | Asteroid | Boundary
+  deriving Eq
+data Cardinals = North | South | West | East
+  deriving Eq
+
 
 type Size      =  Int
 type Pos       =  (Int, Int)
@@ -54,8 +60,8 @@ contentsTable =  [ (Empty   , '.' )
 
 -- Exercise 7
 printSpace :: Space -> String
-printSpace space = '(' : show (xRows space) ++ "," ++ show (xColumns space) ++ ")\r\n" 
-  ++ positionsY space 0 
+printSpace space = '(' : show (xRows space) ++ "," ++ show (xColumns space) ++ ")\r\n"
+  ++ positionsY space 0
   where
     positionsY :: Space -> Int -> String
     positionsY s j | j <= xRows s = positionsX s 0 j ++ "\r\n" ++  positionsY s (j+1)
@@ -84,7 +90,7 @@ printSpace space = '(' : show (xRows space) ++ "," ++ show (xColumns space) ++ "
 -- These three should be defined by you
 type Ident = IIdent
 type Commands = Cmds
-type Heading = Dir
+type Heading = Cardinals
 
 -- Maps function names to command stacks
 type Environment = Map Ident Commands
@@ -99,7 +105,7 @@ data Step =  Done  Space Pos Heading
 -- | Exercise 8
 -- Parse the string into a new environment
 toEnvironment :: String -> Environment
-toEnvironment input = 
+toEnvironment input =
   let
     p = parser (alexScanTokens input)
   in
@@ -115,9 +121,9 @@ programToEnvironment (Program rules) = foldl addToEnvironment L.empty rules
 -- | Exercise 9
 step :: Environment -> ArrowState -> Step
 step env state@(ArrowState space position heading (Cmds commands)) =
-  let 
+  let
     noCommandLeft = null commands
-    top = head commands 
+    top = head commands
   in
     -- Return Done if there are no commands left
     if noCommandLeft then
@@ -132,20 +138,54 @@ step env state@(ArrowState space position heading (Cmds commands)) =
           CCaseOfEnd dir alts -> stepCase state dir
           CRule ident -> stepRule env state ident
 
+--Moves arrow if facing position is empty, lambda or debris
 stepGo :: ArrowState -> Step
-stepGo state = undefined
+stepGo state@(ArrowState space position@(y,x) heading coms) | exists = Ok (ArrowState space facingPosition heading coms)
+                                                            | otherwise = Fail "Not real position"
+  where
+    exists = L.member facingPosition space && ((space L.! facingPosition) `elem` [Empty, Lambda, Debris])
+    facingPosition :: Pos
+    facingPosition | heading == North = (y-1,x)
+                   | heading == South = (y+1,x)
+                   | heading == West = (y, x-1)
+                   | heading == East = (y, x)
 
+--Takes debris or lambda from position
 stepTake :: ArrowState -> Step
-stepTake = undefined
+stepTake state@(ArrowState space position heading coms) | filled = Ok (ArrowState newSpace position heading coms)
+                                                        | otherwise = Fail "Empty position!"
+  where
+    filled = (space L.! position) `elem` [Lambda, Debris]
+    newSpace = L.insert position Empty space
 
+--Always replaces position with lambda as specified
 stepMark :: ArrowState -> Step
-stepMark = undefined
+stepMark state@(ArrowState space position heading coms) = Ok (ArrowState newSpace position heading coms)
+  where newSpace = L.insert position Lambda space
 
+--Turns Arrow in specified direction
 stepTurn :: ArrowState -> Dir -> Step
-stepTurn d = undefined
+stepTurn state@(ArrowState space position heading coms) d = Ok (ArrowState space position newHeading coms)
+  where
+    newHeading :: Heading
+    newHeading | d == DLeft = leftFrom heading
+               | d == DRight = rightFrom heading
+               | otherwise = heading
+    leftFrom heading | heading == North = West
+                     | heading == West = South
+                     | heading == South = East
+                     | heading == East = North
+    rightFrom heading | heading == North = East
+                      | heading == West = North
+                      | heading == South = West
+                      | heading == East = South
 
 stepCase :: ArrowState -> Dir -> Step
 stepCase d as = undefined
 
-stepRule :: Environment -> ArrowState -> Ident -> a
-stepRule i = undefined
+-- Produces error when no rule is found, need to discuss
+stepRule :: Environment -> ArrowState -> Ident -> Step
+stepRule rules state@(ArrowState space position heading (Cmds coms)) i = Ok (ArrowState space position heading (Cmds (stackedComs newCommands)))
+  where
+    stackedComs (Cmds newCommands) = newCommands ++ coms
+    newCommands = rules L.! i
