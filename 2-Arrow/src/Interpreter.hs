@@ -189,6 +189,7 @@ stepTurn state@(ArrowState space position heading coms) d =
   Ok (ArrowState space position (newHeading heading d) coms)
     
 -- Make sensor reading and push commands when pattern matches
+-- TODO: must return fail if no pattern matches
 stepCase :: ArrowState -> Dir -> Alts -> Step
 stepCase as@(ArrowState space position heading stack) dir alts = 
   let
@@ -224,6 +225,7 @@ contentsToPat Boundary  = PBoundary
 -- This gives an error when an undefined Rule is called,
 -- which is fine, because we check whether no undefined
 -- Rules are called in checkProgram.
+-- TODO: must return fail if the rule is undefined
 stepRule :: Environment -> ArrowState -> Ident -> Step
 stepRule rules state@(ArrowState space position heading stack) i = 
   Ok (ArrowState space position heading (pushCommands newCommands stack))
