@@ -21,7 +21,7 @@ import Data.List ( find )
 data Contents  =  Empty | Lambda | Debris | Asteroid | Boundary
   deriving Eq
 data Cardinals = North | East | South | West
-  deriving Eq
+  deriving (Eq, Show)
 
 -- | (dir == right) = oldFacing + 1
 -- | (dir == left) = oldFacing - 1
@@ -106,6 +106,13 @@ data Step =  Done  Space Pos Heading
           |  Ok    ArrowState
           |  Fail  String
 
+isOk :: Step -> Bool
+isOk (Ok _) = True
+isOk _      = False
+
+getState :: Step -> ArrowState
+getState (Ok state) = state
+
 -- | Exercise 8
 -- Parse the string into a new environment
 toEnvironment :: String -> Environment
@@ -127,10 +134,12 @@ programToEnvironment (Program rules) = foldl addToEnvironment L.empty rules
 -- Do one step of the simulation, popping one argument of the stack and
 -- interpreting it.
 step :: Environment -> ArrowState -> Step
-step env state@(ArrowState space position heading (Cmds commands)) =
+step env state@(ArrowState space position heading stack) =
   let
-    noCommandLeft = null commands
-    top = head commands
+    pop = popCommand stack
+    noCommandLeft = isNothing pop
+    top = fst (fromJust pop)
+    poppedState = ArrowState space position heading (snd (fromJust pop))
   in
     -- Return Done if there are no commands left
     if noCommandLeft then
@@ -138,13 +147,17 @@ step env state@(ArrowState space position heading (Cmds commands)) =
     else
     -- Else pattern match on the popped command.
         case top of
-          CGo -> stepGo state
-          CTake -> stepTake state
-          CMark -> stepMark state
-          CNothing -> Ok state
-          CTurn dir -> stepTurn state dir
-          CCaseOfEnd dir alts -> stepCase state dir alts
-          CRule ident -> stepRule env state ident
+          CGo -> stepGo poppedState
+          CTake -> stepTake poppedState
+          CMark -> stepMark poppedState
+          CNothing -> Ok poppedState
+          CTurn dir -> stepTurn poppedState dir
+          CCaseOfEnd dir alts -> stepCase poppedState dir alts
+          CRule ident -> stepRule env poppedState ident
+
+popCommand :: Stack -> Maybe (Cmd, Stack)
+popCommand (Cmds [])        = Nothing
+popCommand (Cmds (c : cs))  = Just (c, Cmds cs)
 
 --Moves arrow if facing position is empty, lambda or debris
 stepGo :: ArrowState -> Step
