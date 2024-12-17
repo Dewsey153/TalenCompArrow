@@ -105,7 +105,7 @@ message (Ok (ArrowState space pos heading stack))
    ++ show heading 
    ++ ".\r\n\r\nStack contains:\r\n" 
    ++ show stack 
-   ++ "\r\n\r\nPress any key to continue."
+   ++ "\r\n\r\nPress Enter to continue."
       
 message (Fail errorMessage) 
    = errorMessage
