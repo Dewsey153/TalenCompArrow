@@ -38,29 +38,32 @@ batch = undefined
 -- and write a new main function.
 main :: IO ()
 main = do
-   putStrLn "\r\nGive filepath to space relative to the cabal file."
-   spacePath <- getLine
-   space <- readSpace spacePath
-   putStrLn "Give filepath to the program relative to the cabal file."
-   envPath <- getLine
-   env <- readEnvironment envPath
-   startPos <- getStartPosition
+   putStrLn ""
+   space          <- getSpace
+   env            <- getEnvironment
+   startPos       <- getStartPosition
    initialHeading <- getInitialHeading
+
+   -- Call interactive with only the "start" rule in the stack.
    interactive env (ArrowState space startPos initialHeading (Cmds [CRule (IIdent "start")]))
 
--- Provided the path to the file containing the space, parse
+-- Ask for the path to the file containing the space, parse
 -- the Space and return it.
-readSpace :: FilePath -> IO Space
-readSpace path = 
+getSpace :: IO Space
+getSpace = 
    do
-      fileContent <- readFile path
+      putStrLn "Give filepath to space relative to the cabal file."
+      spacePath   <- getLine
+      fileContent <- readFile spacePath
       return $ fst (head (parse parseSpace fileContent))
 
--- Given the file path to the program, parse the program.
-readEnvironment :: FilePath -> IO Environment
-readEnvironment path = 
+-- Ask for the file path to the program, parse the program.
+getEnvironment :: IO Environment
+getEnvironment = 
    do
-      fileContent <- readFile path
+      putStrLn "Give filepath to the program relative to the cabal file."
+      envPath <- getLine
+      fileContent <- readFile envPath
       return $ toEnvironment fileContent
 
 -- Ask the user to provide a starting position
@@ -88,12 +91,21 @@ getInitialHeading =
       stringToHeading "s" = South
       stringToHeading "w" = West
 
+-- Given a Step, return the message which interactive will display after the step
+-- is done.
 message :: Step -> String
 message (Done space pos heading) 
    = printSpace space ++ "\r\nThe program has terminated without any errors."
       
 message (Ok (ArrowState space pos heading stack)) 
-   = printSpace space ++ "Arrow is on " ++ show pos ++ ". Stack contains" ++ show stack ++ "Current heading " ++ show heading ++ "\r\nPress any key to continue."
+   = printSpace space 
+   ++ "Arrow position: " 
+   ++ show pos 
+   ++ ".\r\nCurrent heading: " 
+   ++ show heading 
+   ++ ".\r\n\r\nStack contains:\r\n" 
+   ++ show stack 
+   ++ "\r\n\r\nPress any key to continue."
       
 message (Fail errorMessage) 
    = errorMessage
