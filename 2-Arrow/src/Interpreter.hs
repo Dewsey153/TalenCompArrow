@@ -15,12 +15,16 @@ import Algebra
 import Data.Maybe
 import Data.HashMap.Internal.Array (new)
 import Control.Arrow (ArrowChoice(right))
+import Data.List ( find )
 
 
 data Contents  =  Empty | Lambda | Debris | Asteroid | Boundary
   deriving Eq
-data Cardinals = North | South | West | East
+data Cardinals = North | East | South | West
   deriving Eq
+
+-- | (dir == right) = oldFacing + 1
+-- | (dir == left) = oldFacing - 1
 
 
 type Size      =  Int
@@ -119,6 +123,9 @@ programToEnvironment (Program rules) = foldl addToEnvironment L.empty rules
     addToEnvironment cenv (Rule ident cmds) = L.insert ident cmds cenv
 
 -- | Exercise 9
+
+-- Do one step of the simulation, popping one argument of the stack and
+-- interpreting it.
 step :: Environment -> ArrowState -> Step
 step env state@(ArrowState space position heading (Cmds commands)) =
   let
@@ -129,63 +136,133 @@ step env state@(ArrowState space position heading (Cmds commands)) =
     if noCommandLeft then
       Done space position heading
     else
+    -- Else pattern match on the popped command.
         case top of
           CGo -> stepGo state
           CTake -> stepTake state
           CMark -> stepMark state
           CNothing -> Ok state
           CTurn dir -> stepTurn state dir
-          CCaseOfEnd dir alts -> stepCase state dir
+          CCaseOfEnd dir alts -> stepCase state dir alts
           CRule ident -> stepRule env state ident
 
 --Moves arrow if facing position is empty, lambda or debris
 stepGo :: ArrowState -> Step
-stepGo state@(ArrowState space position@(y,x) heading coms) | exists = Ok (ArrowState space facingPosition heading coms)
-                                                            | otherwise = Fail "Not real position"
+stepGo state@(ArrowState space position@(y,x) heading coms) 
+  | exists = Ok (ArrowState space (nextPosition heading position) heading coms)
+  | otherwise = Ok state
   where
-    exists = L.member facingPosition space && ((space L.! facingPosition) `elem` [Empty, Lambda, Debris])
-    facingPosition :: Pos
-    facingPosition | heading == North = (y-1,x)
-                   | heading == South = (y+1,x)
-                   | heading == West = (y, x-1)
-                   | heading == East = (y, x)
+    exists = 
+      getContent space position `elem` [Empty, Lambda, Debris]
 
 --Takes debris or lambda from position
 stepTake :: ArrowState -> Step
-stepTake state@(ArrowState space position heading coms) | filled = Ok (ArrowState newSpace position heading coms)
-                                                        | otherwise = Fail "Empty position!"
+stepTake state@(ArrowState space position heading coms) 
+  | filled = Ok (ArrowState newSpace position heading coms)
+  | otherwise = Ok state
   where
     filled = (space L.! position) `elem` [Lambda, Debris]
     newSpace = L.insert position Empty space
 
 --Always replaces position with lambda as specified
 stepMark :: ArrowState -> Step
-stepMark state@(ArrowState space position heading coms) = Ok (ArrowState newSpace position heading coms)
+stepMark state@(ArrowState space position heading coms) = 
+  Ok (ArrowState newSpace position heading coms)
   where newSpace = L.insert position Lambda space
 
 --Turns Arrow in specified direction
 stepTurn :: ArrowState -> Dir -> Step
-stepTurn state@(ArrowState space position heading coms) d = Ok (ArrowState space position newHeading coms)
-  where
-    newHeading :: Heading
-    newHeading | d == DLeft = leftFrom heading
-               | d == DRight = rightFrom heading
-               | otherwise = heading
-    leftFrom heading | heading == North = West
-                     | heading == West = South
-                     | heading == South = East
-                     | heading == East = North
-    rightFrom heading | heading == North = East
-                      | heading == West = North
-                      | heading == South = West
-                      | heading == East = South
+stepTurn state@(ArrowState space position heading coms) d = 
+  Ok (ArrowState space position (newHeading heading d) coms)
+    
+-- Make sensor reading and push commands when pattern matches
+stepCase :: ArrowState -> Dir -> Alts -> Step
+stepCase as@(ArrowState space position heading stack) dir alts = 
+  let
+    scanPosition          = getNeighbouringPosition position heading dir
+    contentOnScanPosition = getContent space scanPosition
+    newCommands           = findPatternMatch alts contentOnScanPosition
+  in
+    Ok $ ArrowState space position heading (pushCommands newCommands stack) 
 
-stepCase :: ArrowState -> Dir -> Step
-stepCase d as = undefined
+-- Given the alternatives some Contents, get the commands associated with the
+-- content from the pattern matching.
+-- The catch-all pattern will catch all patterns, so any pattern matches after
+-- it will be ignored.
+findPatternMatch :: Alts -> Contents -> Cmds
+findPatternMatch (Alts alts) content = 
+  let 
+    Alt _ cmds = fromJust 
+      $ find (\(Alt pat _) -> 
+            pat == contentsToPat content 
+        ||  pat == PUnderscore) 
+        alts
+  in cmds
 
--- Produces error when no rule is found, need to discuss
+-- Transform the Contents datatype in corresponding Pat data type
+contentsToPat :: Contents -> Pat
+contentsToPat Empty     = PEmpty
+contentsToPat Lambda    = PLambda
+contentsToPat Debris    = PDebris
+contentsToPat Asteroid  = PAsteroid
+contentsToPat Boundary  = PBoundary
+
+-- Add the commands associated with a Rule to the stack.
+-- This gives an error when an undefined Rule is called,
+-- which is fine, because we check whether no undefined
+-- Rules are called in checkProgram.
 stepRule :: Environment -> ArrowState -> Ident -> Step
-stepRule rules state@(ArrowState space position heading (Cmds coms)) i = Ok (ArrowState space position heading (Cmds (stackedComs newCommands)))
+stepRule rules state@(ArrowState space position heading stack) i = 
+  Ok (ArrowState space position heading (pushCommands newCommands stack))
   where
-    stackedComs (Cmds newCommands) = newCommands ++ coms
     newCommands = rules L.! i
+
+-- Pushes the commands from the first argument on top of the stack
+pushCommands :: Commands -> Stack -> Stack
+pushCommands (Cmds commands) (Cmds stack) = Cmds (commands ++ stack) 
+
+-- Get the content on the position in the space.
+-- Will return Boundary if the position is outside of the space.
+getContent :: Space -> Pos -> Contents
+getContent space pos
+  | L.member pos space = space L.! pos
+  | otherwise = Boundary
+
+-- Given the current position, the current heading and a direction 
+-- (left, front or right), returns the position to the left, front
+--  or right of our beloved Arrow.
+getNeighbouringPosition :: Pos -> Heading -> Dir -> Pos
+getNeighbouringPosition pos@(row, column) heading dir =
+  let
+    altHeading = newHeading heading dir
+  in
+    nextPosition altHeading pos
+
+-- Given a heading and a position, return the position you would walk to if 
+-- possible.
+nextPosition :: Heading -> Pos -> Pos
+nextPosition heading (row, column) 
+  | heading == North  = (row-1, column)
+  | heading == South  = (row+1, column)
+  | heading == West   = (row,   column-1)
+  | heading == East   = (row,   column+1)
+
+-- Given a heading and a direction to turn to, return the new heading
+newHeading :: Heading -> Dir -> Heading
+newHeading heading d | d == DLeft   = leftFrom heading
+                     | d == DRight  = rightFrom heading
+                     | otherwise    = heading
+
+-- Get the heading to the left of the input heading
+leftFrom :: Heading -> Heading
+leftFrom heading  | heading == North = West
+                  | heading == West = South
+                  | heading == South = East
+                  | heading == East = North
+
+-- Get the heading to the right of the input heading
+rightFrom :: Heading -> Heading
+rightFrom heading | heading == North = East
+                  | heading == West = North
+                  | heading == South = West
+                  | heading == East = South
