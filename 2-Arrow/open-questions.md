@@ -1,11 +1,11 @@
 # Open questions
 
 ## Exercise 4
-Happy uses left recursion in order to save on stack-space. 
+Happy uses left recursion in order to save on stack-space.
+Left recursion has a constant stack space.
 Right recursion uses more stack space in proportion to the length of the parsed list. 
 Regular parser combinators must use right recursion, as that is standard to haskell.
 ## Exercise 10
-This should not matter. 
-The commands will still be processed, just in a different order. 
-In terms of size, we should not worry, as the commands of a recursive rule are only added when the rule is at the top of the stack. 
-Only if the recursive call is in the middle could the command stack grow too large.
+This only matters in terms of stack size if the recursive call is in the middle.
+In all cases, the commands will still be processed, just in a different order. 
+But in terms of size, it only stays consistent if the call is at the end, otherwise it grows by the amount of commands after the recursion per recursive call.
