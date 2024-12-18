@@ -50,6 +50,44 @@ type PatAlgebra pat =
         pat                 -- underscore
     )
 
+-- Empty command algebra, for when you do not need the command function
+-- to return anything of use.
+emptyCmdAlg :: CmdAlgebra () dir alts ident
+emptyCmdAlg = 
+    (
+        (),
+        (),
+        (),
+        (),
+        const (),
+        \_ _ -> (),
+        const ()
+    )            
+
+-- Empty Direction Algebra, for when you do not need the Direction
+-- function.
+emptyDirAlg :: DirAlgebra ()
+emptyDirAlg =
+    (
+        (),
+        (),
+        ()
+    )
+
+-- Empty Pattern Algebra, for when you do not need the Pat
+-- function.
+emptyPatAlg :: PatAlgebra () 
+emptyPatAlg =
+    (
+        (),
+        (),
+        (),
+        (),
+        (),
+        ()
+    )
+
+-- Fold the program by using the Algebra function recursively
 fold :: Algebra program rule cmds cmdAlg dirAlg alts alt ident patAlg
     -> Program -> program
 fold (program, rule, cmds, cmdAlg, dirAlg, alts, alt, ident, patAlg)
@@ -116,7 +154,7 @@ noPatternMatchFailure =
         \_ cs -> cs,    -- Just pass along cmds bool
         and,            -- All pattern match cases in cmds must be fully covered
         cmdNPMF,        -- Algebra checks whether all pattern match cases are fully covered
-        dirNPMF,        -- Empty algebra
+        emptyDirAlg,    -- Empty algebra
         \pats ->        -- For pattern matchings, Underscore must be present 
                         -- exactly once, or all other patterns must be 
                         -- present exactly once
@@ -145,13 +183,6 @@ noPatternMatchFailure =
                 const True
             )
 
-        dirNPMF =
-            (
-                (),
-                (),
-                ()
-            )
-
         -- Identity algeba consists of all constructors
         patNPMF =
             (
@@ -171,44 +202,13 @@ envAlg =
         \ss -> let set = foldl (flip HashSet.insert) HashSet.empty ss in (length set == length ss, set),
         const,
         const (),
-        cmdEnv,
-        dirEnv,
+        emptyCmdAlg,
+        emptyDirAlg,
         const (),
         \_ _ -> (),
         id,
-        patEnv
-    )
-    where
-        -- empty algebra
-        cmdEnv =
-            (
-                (),
-                (),
-                (),
-                (),
-                const (),
-                \_ _ -> (),
-                const ()
-            )
-
-        -- empty algebra
-        dirEnv =
-            (
-                (),
-                (),
-                ()
-            )
-
-        -- empty algebra
-        patEnv =
-            (
-                (),
-                (),
-                (),
-                (),
-                (),
-                ()
-            )
+        emptyPatAlg
+    )    
 
 -- Given an environment, checks whether there are no calls to undefined rules 
 -- in the program given to fold. Also checks whether there is a rule named "start".
@@ -225,7 +225,7 @@ envCheckAlg =
         -- Indicates whether all command do not call undefined rule
         \cmdList env -> all (\f -> f env) cmdList,
         envCheckCmd,
-        envCheckDir,
+        emptyDirAlg,
         -- altList :: [Bool]
         -- Indicate for each alt whether it does not contain call to undefined 
         -- rule
@@ -233,7 +233,7 @@ envCheckAlg =
         -- pat :: (), cmds :: Bool
         \pat cmds env -> cmds env,
         id,
-        envCheckPat
+        emptyPatAlg
     )
     where
         envCheckCmd :: CmdAlgebra (Env -> Bool) () (Env -> Bool) String
@@ -249,25 +249,6 @@ envCheckAlg =
 
                 -- If a rule is called, check if the rule name is in the HashSet of defined rule names.
                 HashSet.member
-            )
-
-        envCheckDir :: DirAlgebra ()
-        envCheckDir =
-            (
-                (),
-                (),
-                ()
-            )
-
-        envCheckPat :: PatAlgebra ()
-        envCheckPat =
-            (
-                (),
-                (),
-                (),
-                (),
-                (),
-                ()
             )
 
 -- combine two algebras, so you need a single fold to evaluate both.
@@ -310,6 +291,7 @@ combine
         combinePat patAlg1 patAlg2
     )
     where
+        -- Combine two cmd algebras
         combineCmd :: CmdAlgebra cmd1 dir1 alts1 ident1
             -> CmdAlgebra cmd2 dir2 alts2 ident2
             -> CmdAlgebra (cmd1, cmd2) (dir1, dir2) (alts1, alts2) (ident1, ident2)
@@ -343,10 +325,12 @@ combine
                 BF.bimap crule1 crule2
             )
 
+        -- Combine two dir algebras
         combineDir :: DirAlgebra dir1 -> DirAlgebra dir2 -> DirAlgebra (dir1, dir2)
         combineDir (left1, right1, front1) (left2, right2, front2) =
             ((left1, left2), (right1, right2), (front1, front2))
 
+        -- Combine two pat algebras
         combinePat :: PatAlgebra pat1 -> PatAlgebra pat2 -> PatAlgebra (pat1, pat2)
         combinePat (empty1, lambda1, debris1, asteroid1, boundary1, underscore1)
             (empty2, lambda2, debris2, asteroid2, boundary2, underscore2) =
