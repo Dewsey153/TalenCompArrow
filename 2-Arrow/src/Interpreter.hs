@@ -189,29 +189,34 @@ stepTurn state@(ArrowState space position heading coms) d =
   Ok (ArrowState space position (newHeading heading d) coms)
     
 -- Make sensor reading and push commands when pattern matches
--- TODO: must return fail if no pattern matches
 stepCase :: ArrowState -> Dir -> Alts -> Step
 stepCase as@(ArrowState space position heading stack) dir alts = 
   let
     scanPosition          = getNeighbouringPosition position heading dir
     contentOnScanPosition = getContent space scanPosition
-    newCommands           = findPatternMatch alts contentOnScanPosition
+    foundCommands           = findPatternMatch alts contentOnScanPosition
   in
-    Ok $ ArrowState space position heading (pushCommands newCommands stack) 
+    case foundCommands of
+      Just newCmds -> Ok $ ArrowState space position heading (pushCommands newCmds stack)
+      _            -> Fail "Pattern did not match any of the pattern matchings."
 
--- Given the alternatives some Contents, get the commands associated with the
+-- Given the alternatives and some Contents, get the commands associated with the
 -- content from the pattern matching.
 -- The catch-all pattern will catch all patterns, so any pattern matches after
 -- it will be ignored.
-findPatternMatch :: Alts -> Contents -> Cmds
+findPatternMatch :: Alts -> Contents -> Maybe Cmds
 findPatternMatch (Alts alts) content = 
   let 
-    Alt _ cmds = fromJust 
-      $ find (\(Alt pat _) -> 
+    foundPattern = 
+      find (\(Alt pat _) -> 
             pat == contentsToPat content 
         ||  pat == PUnderscore) 
         alts
-  in cmds
+  -- Use do notation for returning Nothing when no pattern matched
+  -- or returning (Just cmds) when a pattern matched.
+  in do
+    Alt _ cmds <- foundPattern
+    return cmds
 
 -- Transform the Contents datatype in corresponding Pat data type
 contentsToPat :: Contents -> Pat
