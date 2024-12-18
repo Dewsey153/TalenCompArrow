@@ -30,8 +30,23 @@ interactive env state = interactive' (Ok state) env state
                   else
                      return ()
 
+-- Run the program in one go, only returning the final state
 batch :: Environment -> ArrowState -> (Space, Pos, Heading)
-batch = undefined
+batch env state =
+   let
+      -- evaluate next step
+      nextStep = step env state
+   in
+      case nextStep of
+         Ok newState
+         -- recurs
+            -> batch env newState
+         -- recursion is done. Return final state.
+         Done space pos heading 
+            -> (space, pos, heading)
+         -- Throw an error with the appropiate message.
+         Fail errorMessage
+            -> error $ makeErrorMessage errorMessage
 
 -- This function is just here to play around with and test your lexer/parser.
 -- When implementing exercise 11, delete this comment and this function,
@@ -43,9 +58,20 @@ main = do
    env            <- getEnvironment
    startPos       <- getStartPosition
    initialHeading <- getInitialHeading
+   mode           <- getMode
 
-   -- Call interactive with only the "start" rule in the stack.
-   interactive env (ArrowState space startPos initialHeading (Cmds [CRule (IIdent "start")]))
+   let startingState = ArrowState space startPos initialHeading (Cmds [CRule (IIdent "start")])
+
+   -- interactive mode
+   if mode == 'i'
+      then
+         interactive env startingState
+      -- batch mode
+      else if mode == 'b' then
+         let result = batch env startingState
+         in putStrLn (printResult result ++ doneMessage)
+      -- neither
+      else error "Input character for mode selection is invalid."
 
 -- Ask for the path to the file containing the space, parse
 -- the Space and return it.
@@ -91,21 +117,41 @@ getInitialHeading =
       stringToHeading "s" = South
       stringToHeading "w" = West
 
--- Given a Step, return the message which interactive will display after the step
--- is done.
+getMode :: IO Char
+getMode =
+   do
+      putStrLn "Do you want to run interactive (i) or batch mode (b)?"
+      getChar
+
+-- Given a Step, return the message which interactive will display 
+-- based on the step
 message :: Step -> String
-message (Done space pos heading) 
-   = printSpace space ++ "\r\nThe program has terminated without any errors."
+message (Done {}) 
+   = doneMessage
       
 message (Ok (ArrowState space pos heading stack)) 
-   = printSpace space 
-   ++ "Arrow position: " 
-   ++ show pos 
-   ++ ".\r\nCurrent heading: " 
-   ++ show heading 
+   = printResult (space, pos, heading)
    ++ ".\r\n\r\nStack contains:\r\n" 
    ++ show stack 
    ++ "\r\n\r\nPress Enter to continue."
       
 message (Fail errorMessage) 
-   = errorMessage
+   = makeErrorMessage errorMessage
+
+-- Make a pretty string containing info on the space, position an heading.
+printResult :: (Space, Pos, Heading) -> String
+printResult (space, pos, heading) =
+   printSpace space 
+   ++ "Arrow position: " 
+   ++ show pos 
+   ++ "\r\nCurrent heading: " 
+   ++ show heading
+
+-- Message for when the program has terminated
+doneMessage :: String
+doneMessage = "\r\nThe program has terminated without any errors."
+
+-- Add a fun "Runtime error: " string in front of the actual error message,
+-- so the user knows for sure that an error occured.
+makeErrorMessage :: String -> String
+makeErrorMessage errorContent = "Runtime error: " ++ errorContent
