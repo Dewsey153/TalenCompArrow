@@ -159,6 +159,8 @@ step env state@(ArrowState space position heading stack) =
           CCaseOfEnd dir alts -> stepCase poppedState dir alts
           CRule ident -> stepRule env poppedState ident
 
+-- Pop the top command from the stack and return it with the rest of the stack.
+-- Returns Nothing if the stack is empty.
 popCommand :: Stack -> Maybe (Cmd, Stack)
 popCommand (Cmds [])        = Nothing
 popCommand (Cmds (c : cs))  = Just (c, Cmds cs)
