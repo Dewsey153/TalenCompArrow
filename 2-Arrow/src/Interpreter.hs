@@ -123,7 +123,7 @@ toEnvironment input =
   let
     p = parser (alexScanTokens input)
   in
-    if checkProgram p then programToEnvironment p else L.empty
+    if check p then programToEnvironment p else L.empty
 
 -- Convert a Program into an Environment by placing each rule in the Map
 programToEnvironment :: Program -> Environment

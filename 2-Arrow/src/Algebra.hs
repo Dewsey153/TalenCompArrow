@@ -141,8 +141,8 @@ fold (program, rule, cmds, cmdAlg, dirAlg, alts, alt, ident, patAlg)
 -- Exercise 6
 
 -- Checks whether the input program is valid.
-checkProgram :: Program -> Bool
-checkProgram p = 
+check :: Program -> Bool
+check p = 
     -- The (noDoubles, env) tuple is returned by envAlg.
     let (noMatchFail, ((noDoubles, env), f)) = fold (combine noPatternMatchFailure (combine envAlg envCheckAlg)) p
     in noMatchFail && noDoubles && f env
