@@ -230,11 +230,12 @@ contentsToPat Boundary  = PBoundary
 -- This gives an error when an undefined Rule is called,
 -- which is fine, because we check whether no undefined
 -- Rules are called in checkProgram.
--- TODO: must return fail if the rule is undefined
 stepRule :: Environment -> ArrowState -> Ident -> Step
-stepRule rules state@(ArrowState space position heading stack) i = 
-  Ok (ArrowState space position heading (pushCommands newCommands stack))
+stepRule rules state@(ArrowState space position heading stack) i
+  | not definedRule = Fail "Undefined rule." 
+  | otherwise = Ok (ArrowState space position heading (pushCommands newCommands stack))
   where
+    definedRule = L.member i rules
     newCommands = rules L.! i
 
 -- Pushes the commands from the first argument on top of the stack
