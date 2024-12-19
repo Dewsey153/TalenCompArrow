@@ -78,7 +78,7 @@ main = do
 getSpace :: IO Space
 getSpace = 
    do
-      putStrLn "Give filepath to space relative to the cabal file."
+      putStrLn "Give filepath to .space file relative to the cabal file."
       spacePath   <- getLine
       fileContent <- readFile spacePath
       return $ fst (head (parse parseSpace fileContent))
@@ -87,7 +87,7 @@ getSpace =
 getEnvironment :: IO Environment
 getEnvironment = 
    do
-      putStrLn "Give filepath to the program relative to the cabal file."
+      putStrLn "Give filepath to the .arrow file relative to the cabal file."
       envPath <- getLine
       fileContent <- readFile envPath
       return $ toEnvironment fileContent
