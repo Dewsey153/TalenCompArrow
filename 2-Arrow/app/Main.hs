@@ -14,7 +14,10 @@ import qualified Data.HashSet as HashSet
 -- The interactive driver. After each step, print the board and
 -- ask the user for confimation before continuing.
 interactive :: Environment -> ArrowState -> IO ()
-interactive env state = interactive' (Ok state) env state
+interactive env state = do
+   -- Call getChar to avoid printing two states in the very beginning of the mode.
+   getChar
+   interactive' (Ok state) env state
    where
       interactive' :: Step -> Environment -> ArrowState -> IO ()
       interactive' oldStep env oldState =
