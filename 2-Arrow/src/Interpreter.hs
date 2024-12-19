@@ -106,10 +106,13 @@ data Step =  Done  Space Pos Heading
           |  Ok    ArrowState
           |  Fail  String
 
+-- Return in a Bool whether the Step uses the Ok constructor
 isOk :: Step -> Bool
 isOk (Ok _) = True
 isOk _      = False
 
+-- Get the state out of the step.
+-- Only works if the step uses the Ok constructor, else throws an error.
 getState :: Step -> ArrowState
 getState (Ok state) = state
 
