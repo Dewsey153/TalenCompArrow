@@ -3,8 +3,9 @@
 ## Exercise 4
 Happy uses left recursion in order to save on stack-space.
 Left recursion has a constant stack space.
-Right recursion uses more stack space in proportion to the length of the parsed list. 
+Right recursion uses more stack space with a size proportional to the length of the parsed list. 
 Regular parser combinators must use right recursion, as that is standard to haskell.
+Left recursion with parser combinators will return in an infinite loop.
 ## Exercise 10
 This only matters in terms of stack size if the recursive call is in the middle.
 In all cases, the commands will still be processed, just in a different order. 
