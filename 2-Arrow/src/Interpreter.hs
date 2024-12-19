@@ -123,6 +123,7 @@ toEnvironment input =
   let
     p = parser (alexScanTokens input)
   in
+    -- We chose to return empty environment if check fails.
     if check p then programToEnvironment p else L.empty
 
 -- Convert a Program into an Environment by placing each rule in the Map
