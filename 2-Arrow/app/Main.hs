@@ -96,8 +96,9 @@ getEnvironment =
 getStartPosition :: IO Pos
 getStartPosition = 
    do
-      putStrLn "Please provide starting position in the following format: [row]\\r\\n[column]\\r\\n"
+      putStrLn "Please provide starting row position"
       rowString <- getLine
+      putStrLn "Please provide starting column position"
       columnString <- getLine
       let row = read rowString
       let column = read columnString
